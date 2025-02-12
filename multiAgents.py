@@ -241,23 +241,13 @@ class MinimaxAgent(MultiAgentSearchAgent):
             logging.debug("[ Called %r ]", called)
 
         def isBigger(a, b): return a > b
+
         def isSmaller(a, b): return a < b
 
-        def minimaxCore(agentIndex, depth, gameState, comparisonFunction):  # Returns bestAction, and value of that action
+        def minimaxCore(agentIndex, depth, gameState, comparisonFunction):
+            # Returns bestAction, and value of that action
             bestAction = None
             bestActionValue = None
-
-            # callFlag()
-
-            logging.debug(f"agentIndex = {agentIndex}")
-            logging.debug(f"depth = {depth}")
-            logging.debug(f"comparisonFunction = {comparisonFunction}")
-
-            if depth == 0:
-                logging.debug(f"Max Depth Reached")
-                bestActionValue = self.evaluationFunction(gameState)
-                logging.debug(f"bestAction, bestActionValue = {bestAction, bestActionValue}")
-                return bestAction, bestActionValue
 
             def getNextAgentData(agentIndex, depth):
                 nextAgentIndex = (agentIndex + 1) % gameState.getNumAgents()
@@ -268,28 +258,46 @@ class MinimaxAgent(MultiAgentSearchAgent):
                     nextComparison = isBigger
                 return nextAgentIndex, nextDepth, nextComparison
 
+            def endOfAnalysis():
+                logging.debug(f"Max Depth Reached")
+                evaluatedActionValue = self.evaluationFunction(gameState)
+                logging.debug(f"evaluatedActionValue = {evaluatedActionValue}")
+                return None, evaluatedActionValue
+
+            # callFlag()
+
+            logging.debug(f"agentIndex = {agentIndex}")
+            logging.debug(f"depth = {depth}")
+            logging.debug(f"comparisonFunction = {comparisonFunction}")
+
+            # If we already reached the depth limit, no need to do anything else
+            # Just return the evaluated value
+            if depth == 0:
+                logging.debug(f"Max Depth Reached")
+                return endOfAnalysis()
+
             nextAgentIndex, nextDepth, nextComparison = getNextAgentData(agentIndex, depth)
 
-            # Top step, analyze all actions possible for pacman, and store the actions in a list
+            # Analyze all actions possible for pacman, and store the actions in a list
             actionList = gameState.getLegalActions(agentIndex)
-            # If the actionList is empty, then we are at the end of the game
-            if len(actionList) == 0:
-                return None, self.evaluationFunction(gameState)
 
-            # logging.debug(f"actionList = {actionList}")
+            # If the actionList is empty, then we are at the end of the game tree
+            # No more analysis is needed
+            if len(actionList) == 0:
+                logging.debug(f"End of Game Tree Reached")
+                return endOfAnalysis()
+
+            # If we need to recurse, recurse through every action in the list
             for action in actionList:
                 successorGameState = gameState.generateSuccessor(agentIndex, action)
                 logging.debug(f"successorGameState = {successorGameState}")
 
-                # This is the very very important part of the whole thing
+                # Do the recursion
                 _, actionValue = minimaxCore(nextAgentIndex, nextDepth, successorGameState, nextComparison)
 
                 if bestActionValue is None or comparisonFunction(actionValue, bestActionValue):
                     bestActionValue = actionValue
                     bestAction = action
-
-            # Get the key of the first item in the dictionary
-            # logging.debug(f"bestAction = {bestAction}")
 
             logging.debug(f"bestAction, bestActionValue = {bestAction, bestActionValue}")
             return bestAction, bestActionValue
@@ -297,21 +305,13 @@ class MinimaxAgent(MultiAgentSearchAgent):
         # The action we will return because we think it's the best
         returnAction = None
 
-        # # Temporary workaround to prevent code from not running
-        # returnAction = gameState.getLegalActions(1)[0]
-
         # Not so temporary work around that simply just works (in theory)
         nextAgentIndex = 0
         nextDepth = self.depth
         nextComparison = isBigger
         returnAction, _ = minimaxCore(nextAgentIndex, nextDepth, gameState, nextComparison)
 
-        # Activate the trap at the end, pausing before we are done
-        logging.debug(f"returnAction = {returnAction}")
-        # util.pause()
-
         logging.getLogger().setLevel(logging.INFO)
-
         return returnAction
 
 
