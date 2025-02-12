@@ -12,6 +12,7 @@
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
 
+import logging
 from util import manhattanDistance
 from game import Directions
 import random
@@ -19,6 +20,9 @@ import util
 
 from game import Agent
 from pacman import GameState
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+calledEvalFunction = 0  # Number of times something is called, used for debugging
 
 
 class ReflexAgent(Agent):
@@ -40,6 +44,7 @@ class ReflexAgent(Agent):
         Just like in the previous project, getAction takes a GameState and returns
         some Directions.X for some X in the set {NORTH, SOUTH, WEST, EAST, STOP}
         """
+
         # Collect legal moves and successor states
         legalMoves = gameState.getLegalActions()
 
@@ -68,15 +73,93 @@ class ReflexAgent(Agent):
         Print out these variables to see what you're getting, then combine them
         to create a masterful evaluation function.
         """
-        # Useful information you can extract from a GameState (pacman.py)
-        successorGameState = currentGameState.generatePacmanSuccessor(action)
-        newPos = successorGameState.getPacmanPosition()
-        newFood = successorGameState.getFood()
-        newGhostStates = successorGameState.getGhostStates()
-        newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        logging.getLogger().setLevel(logging.DEBUG)
+
+        # Counting the number of times this section is called. Useful sometimes.
+        global calledEvalFunction
+        # if called == 10:
+        #     util.pause()
+        # if calledEvalFunction >= 10:
+        #     util.pause()
+        #     raise Exception("Called too many times %r", calledEvalFunction)
+        calledEvalFunction += 1
+        logging.debug("\n\n\n----------\n\n\n")
+        logging.debug("[ Eval Function Called %r ]", calledEvalFunction)
+
+        # Thoughts:
+        # First of all, let's think of a plan for this evaluation function.
+        # 1. The number one priority is to not get destroyed by a ghost next to us. Well, also don't intentionally run into a ghost too. So if a game state ends the game, it must be super highly penalized.
+        # 2. While avoiding the ghost, it's still best to eat as many dots as possible. To make it simple, let's just make every pellet that is above pacman give 1 point to the decision of moving up.
+        # 3. Not moving shouldn't really be rewarded, but it is still always an option. Don't forget coding it in.
+
+        # Note:
+        # According to PacmanRules in pacman.py
+        # - Eating a dot gives 10 score
+        # - Winning the game gives 500
+        # - Eating the scared ghost gives 200
+        # - Losing the game loses 500
+        # - Each time step, the existence cost is 1
+        # - Power pellets give no score
+
+        value = 0.0   # The evaluated score of the action, higher numbers are better
+
+        # Useful information you can extract from a GameState (pacman.py)
+        # s is for successor
+        sGameState = currentGameState.generatePacmanSuccessor(action)
+        # logging.debug(f"currentGameState = {currentGameState}")
+        sPosition = sGameState.getPacmanPosition()
+        # logging.debug(f"pacmanPosition={pacmanPosition}")
+        sFoodGrid = sGameState.getFood()
+        sFoodList = sFoodGrid.asList()
+        sGhostStates = sGameState.getGhostStates()
+        # scaredTimes = [ghostState.scaredTimer for ghostState in sGhostStates]
+
+        # This is a trap, intended to trap and pause the game in specific situations.
+        # def trap():
+        #     pass
+
+        # trap()
+
+        #
+        # Those are functions that are mostly just to make the code look more tidy
+        def avoidImmediateGhost():
+            nonlocal value
+            for ghostState in sGhostStates:
+                distanceToGhost = util.manhattanDistance(sPosition, ghostState.getPosition())
+                if distanceToGhost == 0:
+                    value = -1000.0
+                    break
+                if distanceToGhost == 1:
+                    value = -800.0
+                    break
+
+        def lookForFoodInActionDirection():
+            nonlocal value
+            VALUE_OF_FOOD = 1.0
+            DECAY_PER_DISTANCE = 0.5
+
+            for food in sFoodList:
+                if (
+                    (action == "North" and food[1] > sPosition[1]) or
+                    (action == "South" and food[1] < sPosition[1]) or
+                    (action == "East" and food[0] > sPosition[0]) or
+                    (action == "West" and food[0] < sPosition[0])
+                ):
+                    foodValue = VALUE_OF_FOOD * (DECAY_PER_DISTANCE ** (
+                        util.manhattanDistance(sPosition, food)))
+                    logging.debug("foodValue: %r", foodValue)
+                    value += foodValue
+
+        lookForFoodInActionDirection()
+
+        avoidImmediateGhost()
+
+        value += sGameState.getScore()
+
+        logging.getLogger().setLevel(logging.INFO)
+        return value
 
 
 def scoreEvaluationFunction(currentGameState: GameState):
