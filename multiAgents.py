@@ -22,7 +22,7 @@ from game import Agent
 from pacman import GameState
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
-calledEvalFunction = 0  # Number of times something is called, used for debugging
+called = 0  # Number of times something is called, used for debugging
 
 
 class ReflexAgent(Agent):
@@ -75,18 +75,18 @@ class ReflexAgent(Agent):
         """
 
         "*** YOUR CODE HERE ***"
-        logging.getLogger().setLevel(logging.DEBUG)
+        # logging.getLogger().setLevel(logging.DEBUG)
 
         # Counting the number of times this section is called. Useful sometimes.
-        global calledEvalFunction
+        global called
         # if called == 10:
         #     util.pause()
         # if calledEvalFunction >= 10:
         #     util.pause()
         #     raise Exception("Called too many times %r", calledEvalFunction)
-        calledEvalFunction += 1
+        called += 1
         logging.debug("\n\n\n----------\n\n\n")
-        logging.debug("[ Eval Function Called %r ]", calledEvalFunction)
+        logging.debug("[ Eval Function Called %r ]", called)
 
         # Thoughts:
         # First of all, let's think of a plan for this evaluation function.
@@ -222,8 +222,61 @@ class MinimaxAgent(MultiAgentSearchAgent):
         gameState.isLose():
         Returns whether or not the game state is a losing state
         """
+
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        logging.getLogger().setLevel(logging.DEBUG)
+
+        # Counting the number of times this section is called. Useful sometimes.
+        global called
+        # if called == 10:
+        #     util.pause()
+        # if calledEvalFunction >= 10:
+        #     util.pause()
+        #     raise Exception("Called too many times %r", calledEvalFunction)
+        called += 1
+        logging.debug("\n\n\n----------\n\n\n")
+        logging.debug("[ Called %r ]", called)
+
+        logging.debug(f"self.depth = {self.depth}")
+        logging.debug(f"gameState.getLegalActions(1) = {gameState.getLegalActions(0)}")
+
+        # This is a trap, intended to trap and pause the game in specific situations.
+        def trap():
+            util.pause()
+            pass
+
+        def maxAgent(agentID):  # Returns bestAction, and value of that action
+            bestAction = None
+            bestActionValue = None
+
+            # Top step, analyze all actions possible for pacman, and store the value of them in a dictionary
+            actionDictionary = {}   # Stores action and value pairs
+            for action in gameState.getLegalActions(agentID):
+                actionDictionary[action] = None  # Initialize with None or any other non-number value
+
+            logging.debug(f"actionDictionary = {actionDictionary}")
+
+            # Get the key of the first item in the dictionary
+            bestAction = next(iter(actionDictionary))
+            logging.debug(f"bestAction = {bestAction}")
+
+            return bestAction, bestActionValue
+
+        returnAction = None     # The action we will return because we think it's the best
+
+        # # Temporary workaround to prevent code from not running
+        # returnAction = gameState.getLegalActions(1)[0]
+
+        # Not so temporary work around that simply just works (in theory)
+        returnAction, _ = maxAgent(0)
+
+        # Activate the trap at the end, pausing before we are done
+        logging.debug(f"returnAction = {returnAction}")
+        trap()
+
+        logging.getLogger().setLevel(logging.INFO)
+
+        return returnAction
 
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
