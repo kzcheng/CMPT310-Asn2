@@ -224,55 +224,91 @@ class MinimaxAgent(MultiAgentSearchAgent):
         """
 
         "*** YOUR CODE HERE ***"
-        logging.getLogger().setLevel(logging.DEBUG)
+        # logging.getLogger().setLevel(logging.DEBUG)
 
-        # Counting the number of times this section is called. Useful sometimes.
-        global called
-        # if called == 10:
-        #     util.pause()
-        # if calledEvalFunction >= 10:
-        #     util.pause()
-        #     raise Exception("Called too many times %r", calledEvalFunction)
-        called += 1
-        logging.debug("\n\n\n----------\n\n\n")
-        logging.debug("[ Called %r ]", called)
+        def callFlag():
+            # Counting the number of times this section is called. Useful sometimes.
+            global called
+            # if called == 10:
+            #     util.pause()
+            # if calledEvalFunction >= 10:
+            #     util.pause()
+            #     raise Exception("Called too many times %r", calledEvalFunction)
+            called += 1
 
-        logging.debug(f"self.depth = {self.depth}")
-        logging.debug(f"gameState.getLegalActions(1) = {gameState.getLegalActions(0)}")
-
-        # This is a trap, intended to trap and pause the game in specific situations.
-        def trap():
             util.pause()
-            pass
+            logging.debug("\n\n\n----------\n\n\n")
+            logging.debug("[ Called %r ]", called)
 
-        def maxAgent(agentID):  # Returns bestAction, and value of that action
+        def isBigger(a, b): return a > b
+        def isSmaller(a, b): return a < b
+
+        def minimaxCore(agentIndex, depth, gameState, comparisonFunction):  # Returns bestAction, and value of that action
             bestAction = None
             bestActionValue = None
 
-            # Top step, analyze all actions possible for pacman, and store the value of them in a dictionary
-            actionDictionary = {}   # Stores action and value pairs
-            for action in gameState.getLegalActions(agentID):
-                actionDictionary[action] = None  # Initialize with None or any other non-number value
+            # callFlag()
 
-            logging.debug(f"actionDictionary = {actionDictionary}")
+            logging.debug(f"agentIndex = {agentIndex}")
+            logging.debug(f"depth = {depth}")
+            logging.debug(f"comparisonFunction = {comparisonFunction}")
+
+            if depth == 0:
+                logging.debug(f"Max Depth Reached")
+                bestActionValue = self.evaluationFunction(gameState)
+                logging.debug(f"bestAction, bestActionValue = {bestAction, bestActionValue}")
+                return bestAction, bestActionValue
+
+            def getNextAgentData(agentIndex, depth):
+                nextAgentIndex = (agentIndex + 1) % gameState.getNumAgents()
+                nextDepth = depth
+                nextComparison = isSmaller
+                if nextAgentIndex == 0:  # If it's Pacman's turn again
+                    nextDepth -= 1
+                    nextComparison = isBigger
+                return nextAgentIndex, nextDepth, nextComparison
+
+            nextAgentIndex, nextDepth, nextComparison = getNextAgentData(agentIndex, depth)
+
+            # Top step, analyze all actions possible for pacman, and store the actions in a list
+            actionList = gameState.getLegalActions(agentIndex)
+            # If the actionList is empty, then we are at the end of the game
+            if len(actionList) == 0:
+                return None, self.evaluationFunction(gameState)
+
+            # logging.debug(f"actionList = {actionList}")
+            for action in actionList:
+                successorGameState = gameState.generateSuccessor(agentIndex, action)
+                logging.debug(f"successorGameState = {successorGameState}")
+
+                # This is the very very important part of the whole thing
+                _, actionValue = minimaxCore(nextAgentIndex, nextDepth, successorGameState, nextComparison)
+
+                if bestActionValue is None or comparisonFunction(actionValue, bestActionValue):
+                    bestActionValue = actionValue
+                    bestAction = action
 
             # Get the key of the first item in the dictionary
-            bestAction = next(iter(actionDictionary))
-            logging.debug(f"bestAction = {bestAction}")
+            # logging.debug(f"bestAction = {bestAction}")
 
+            logging.debug(f"bestAction, bestActionValue = {bestAction, bestActionValue}")
             return bestAction, bestActionValue
 
-        returnAction = None     # The action we will return because we think it's the best
+        # The action we will return because we think it's the best
+        returnAction = None
 
         # # Temporary workaround to prevent code from not running
         # returnAction = gameState.getLegalActions(1)[0]
 
         # Not so temporary work around that simply just works (in theory)
-        returnAction, _ = maxAgent(0)
+        nextAgentIndex = 0
+        nextDepth = self.depth
+        nextComparison = isBigger
+        returnAction, _ = minimaxCore(nextAgentIndex, nextDepth, gameState, nextComparison)
 
         # Activate the trap at the end, pausing before we are done
         logging.debug(f"returnAction = {returnAction}")
-        trap()
+        # util.pause()
 
         logging.getLogger().setLevel(logging.INFO)
 
