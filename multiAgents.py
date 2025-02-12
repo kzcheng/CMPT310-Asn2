@@ -22,7 +22,7 @@ from game import Agent
 from pacman import GameState
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
-calledEvalFunction = 0  # Number of times something is called, used for debugging
+called = 0  # Number of times something is called, used for debugging
 
 
 class ReflexAgent(Agent):
@@ -75,18 +75,18 @@ class ReflexAgent(Agent):
         """
 
         "*** YOUR CODE HERE ***"
-        logging.getLogger().setLevel(logging.DEBUG)
+        # logging.getLogger().setLevel(logging.DEBUG)
 
         # Counting the number of times this section is called. Useful sometimes.
-        global calledEvalFunction
+        global called
         # if called == 10:
         #     util.pause()
         # if calledEvalFunction >= 10:
         #     util.pause()
         #     raise Exception("Called too many times %r", calledEvalFunction)
-        calledEvalFunction += 1
+        called += 1
         logging.debug("\n\n\n----------\n\n\n")
-        logging.debug("[ Eval Function Called %r ]", calledEvalFunction)
+        logging.debug("[ Eval Function Called %r ]", called)
 
         # Thoughts:
         # First of all, let's think of a plan for this evaluation function.
@@ -222,8 +222,97 @@ class MinimaxAgent(MultiAgentSearchAgent):
         gameState.isLose():
         Returns whether or not the game state is a losing state
         """
+
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # logging.getLogger().setLevel(logging.DEBUG)
+
+        def callFlag():
+            # Counting the number of times this section is called. Useful sometimes.
+            global called
+            # if called == 10:
+            #     util.pause()
+            # if calledEvalFunction >= 10:
+            #     util.pause()
+            #     raise Exception("Called too many times %r", calledEvalFunction)
+            called += 1
+
+            util.pause()
+            logging.debug("\n\n\n----------\n\n\n")
+            logging.debug("[ Called %r ]", called)
+
+        def isBigger(a, b): return a > b
+
+        def isSmaller(a, b): return a < b
+
+        def minimaxCore(agentIndex, depth, gameState, comparisonFunction):
+            # Returns bestAction, and value of that action
+            bestAction = None
+            bestActionValue = None
+
+            def getNextAgentData(agentIndex, depth):
+                nextAgentIndex = (agentIndex + 1) % gameState.getNumAgents()
+                nextDepth = depth
+                nextComparison = isSmaller
+                if nextAgentIndex == 0:  # If it's Pacman's turn again
+                    nextDepth -= 1
+                    nextComparison = isBigger
+                return nextAgentIndex, nextDepth, nextComparison
+
+            def endOfAnalysis():
+                logging.debug(f"Max Depth Reached")
+                evaluatedActionValue = self.evaluationFunction(gameState)
+                logging.debug(f"evaluatedActionValue = {evaluatedActionValue}")
+                return None, evaluatedActionValue
+
+            # callFlag()
+
+            logging.debug(f"agentIndex = {agentIndex}")
+            logging.debug(f"depth = {depth}")
+            logging.debug(f"comparisonFunction = {comparisonFunction}")
+
+            # If we already reached the depth limit, no need to do anything else
+            # Just return the evaluated value
+            if depth == 0:
+                logging.debug(f"Max Depth Reached")
+                return endOfAnalysis()
+
+            nextAgentIndex, nextDepth, nextComparison = getNextAgentData(agentIndex, depth)
+
+            # Analyze all actions possible for pacman, and store the actions in a list
+            actionList = gameState.getLegalActions(agentIndex)
+
+            # If the actionList is empty, then we are at the end of the game tree
+            # No more analysis is needed
+            if len(actionList) == 0:
+                logging.debug(f"End of Game Tree Reached")
+                return endOfAnalysis()
+
+            # If we need to recurse, recurse through every action in the list
+            for action in actionList:
+                successorGameState = gameState.generateSuccessor(agentIndex, action)
+                logging.debug(f"successorGameState = {successorGameState}")
+
+                # Do the recursion
+                _, actionValue = minimaxCore(nextAgentIndex, nextDepth, successorGameState, nextComparison)
+
+                if bestActionValue is None or comparisonFunction(actionValue, bestActionValue):
+                    bestActionValue = actionValue
+                    bestAction = action
+
+            logging.debug(f"bestAction, bestActionValue = {bestAction, bestActionValue}")
+            return bestAction, bestActionValue
+
+        # The action we will return because we think it's the best
+        returnAction = None
+
+        # Not so temporary work around that simply just works (in theory)
+        nextAgentIndex = 0
+        nextDepth = self.depth
+        nextComparison = isBigger
+        returnAction, _ = minimaxCore(nextAgentIndex, nextDepth, gameState, nextComparison)
+
+        logging.getLogger().setLevel(logging.INFO)
+        return returnAction
 
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
