@@ -78,17 +78,6 @@ class ReflexAgent(Agent):
         "*** YOUR CODE HERE ***"
         # logging.getLogger().setLevel(logging.DEBUG)
 
-        # Counting the number of times this section is called. Useful sometimes.
-        global called
-        # if called == 10:
-        #     util.pause()
-        # if calledEvalFunction >= 10:
-        #     util.pause()
-        #     raise Exception("Called too many times %r", calledEvalFunction)
-        called += 1
-        logging.debug("\n\n\n----------\n\n\n")
-        logging.debug("[ Eval Function Called %r ]", called)
-
         # Thoughts:
         # First of all, let's think of a plan for this evaluation function.
         # 1. The number one priority is to not get destroyed by a ghost next to us. Well, also don't intentionally run into a ghost too. So if a game state ends the game, it must be super highly penalized.
