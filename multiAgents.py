@@ -386,7 +386,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
                 logging.debug(f"successorGameState = {successorGameState}")
 
                 # Do the recursion, but only assign it to v if it is more "comparisonFunction" than v
-                # Note that v is actionValue
+                # Note that v is bestActionValue
                 _, actionValue = alphabetaCore(nextAgentIndex, nextDepth, alpha, beta, successorGameState, nextComparison)
 
                 # v = max/min(v, value(successor, alpha, beta))
@@ -396,17 +396,17 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
 
                 if comparisonFunction == isBigger:
                     # if v > beta return v
-                    if actionValue > beta:
+                    if bestActionValue > beta:
                         return bestAction, bestActionValue
                     # alpha = max(alpha, v)
-                    alpha = max(alpha, actionValue)
+                    alpha = max(alpha, bestActionValue)
 
                 elif comparisonFunction == isSmaller:
                     # if v < alpha return v
-                    if actionValue < alpha:
+                    if bestActionValue < alpha:
                         return bestAction, bestActionValue
                     # beta = min(beta, v)
-                    beta = min(beta, actionValue)
+                    beta = min(beta, bestActionValue)
 
                 else:
                     raise Exception("Unexpected comparison function encountered. Expected either 'isBigger' or 'isSmaller', but got: {}".format(comparisonFunction))
@@ -442,7 +442,95 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # logging.getLogger().setLevel(logging.DEBUG)
+
+        def callFlag():
+            # Counting the number of times this section is called. Useful sometimes.
+            global called
+            # if called == 10:
+            #     util.pause()
+            # if calledEvalFunction >= 10:
+            #     util.pause()
+            #     raise Exception("Called too many times %r", calledEvalFunction)
+            called += 1
+
+            util.pause()
+            logging.debug("\n\n\n----------\n\n\n")
+            logging.debug("[ Called %r ]", called)
+
+        def expectimaxCore(agentIndex, depth, gameState):
+            # Returns action, and value of that action
+
+            def endOfAnalysis():
+                evaluatedActionValue = self.evaluationFunction(gameState)
+                logging.debug(f"evaluatedActionValue = {evaluatedActionValue}")
+                return None, evaluatedActionValue
+
+            # callFlag()
+
+            # If we already reached the depth limit, no need to do anything else
+            # Just return the evaluated value
+            if depth == 0:
+                logging.debug(f"Max Depth Reached")
+                return endOfAnalysis()
+
+            nextAgentIndex, nextDepth, _ = getNextAgentData(agentIndex, depth, gameState)
+
+            # Analyze all actions possible for pacman, and store the actions in a list
+            actionList = gameState.getLegalActions(agentIndex)
+
+            # If the actionList is empty, then we are at the end of the game tree
+            # No more analysis is needed
+            if len(actionList) == 0:
+                logging.debug(f"End of Game Tree Reached")
+                return endOfAnalysis()
+
+            # If we are the pacman
+            if agentIndex == 0:
+                bestAction = None
+                bestActionValue = None
+
+                # If we need to recurse, recurse through every action in the list
+                for action in actionList:
+                    successorGameState = gameState.generateSuccessor(agentIndex, action)
+                    logging.debug(f"successorGameState = {successorGameState}")
+
+                    # Do the recursion
+                    # Note that v is bestActionValue
+                    _, actionValue = expectimaxCore(nextAgentIndex, nextDepth, successorGameState)
+
+                    # v = max(v, value(successor))
+                    if bestActionValue is None or (actionValue > bestActionValue):
+                        bestActionValue = actionValue
+                        bestAction = action
+
+                logging.debug(f"bestAction, bestActionValue = {bestAction, bestActionValue}")
+                return bestAction, bestActionValue
+
+            # If we are stupid ghosts
+            else:
+                actionValueList = []
+                for action in actionList:
+                    # Get the average value, recursion
+                    successorGameState = gameState.generateSuccessor(agentIndex, action)
+                    logging.debug(f"successorGameState = {successorGameState}")
+
+                    _, actionValue = expectimaxCore(nextAgentIndex, nextDepth, successorGameState)
+
+                    actionValueList.append(actionValue)
+                averageActionValue = sum(actionValueList) / len(actionValueList)
+                return None, averageActionValue
+
+        # The action we will return because we think it's the best
+        returnAction = None
+
+        # Not so temporary work around that simply just works (in theory)
+        nextAgentIndex = 0
+        nextDepth = self.depth
+        returnAction, _ = expectimaxCore(nextAgentIndex, nextDepth, gameState)
+
+        logging.getLogger().setLevel(logging.INFO)
+        return returnAction
 
 
 def betterEvaluationFunction(currentGameState: GameState):
