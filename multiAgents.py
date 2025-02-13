@@ -14,7 +14,7 @@
 
 import logging
 from util import manhattanDistance
-from game import Directions
+from game import Directions, Actions
 import random
 import util
 from game import Agent
@@ -577,6 +577,36 @@ def betterEvaluationFunction(gameState: GameState):
     value += ghostPenalty
     logging.debug(f"ghostPenalty = {ghostPenalty}")
 
+    def aStarDistance(start, goal):
+        from util import PriorityQueue
+        walls = gameState.getWalls()
+        frontier = PriorityQueue()
+        frontier.push((start, 0), 0)
+        visited = {}
+
+        while not frontier.isEmpty():
+            current, cost = frontier.pop()
+            if current in visited:
+                continue
+            visited[current] = cost
+
+            if current == goal:
+                return cost
+
+            x, y = current
+            for direction in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
+                dx, dy = Actions.directionToVector(direction)
+                nextx = int(x + dx)
+                nexty = int(y + dy)
+                if 0 <= nextx < walls.width and 0 <= nexty < walls.height and not walls[nextx][nexty]:
+                    nextPos = (nextx, nexty)
+                    new_cost = cost + 1
+                    if nextPos not in visited or new_cost < visited.get(nextPos, float('inf')):
+                        priority = new_cost + manhattanDistance(nextPos, goal)
+                        frontier.push((nextPos, new_cost), priority)
+
+        return float('inf')  # No path found
+
     # Now, let's make pacman be attracted to dots
     # In fact, how about make every dot attract pacman
     # This almost works now, I'm gonna do an actual fucking path find
@@ -584,7 +614,7 @@ def betterEvaluationFunction(gameState: GameState):
     DECAY_PER_DISTANCE = 0.05
     totalFoodValue = 0
     for food in foodList:
-        foodValue = VALUE_OF_FOOD * (DECAY_PER_DISTANCE ** (util.manhattanDistance(position, food)))
+        foodValue = VALUE_OF_FOOD * (DECAY_PER_DISTANCE ** (aStarDistance(position, food)))
         # logging.debug(f"food = {food}")
         # logging.debug(f"foodValue = {foodValue}")
         totalFoodValue += foodValue
