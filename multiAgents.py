@@ -17,9 +17,9 @@ from util import manhattanDistance
 from game import Directions
 import random
 import util
-
 from game import Agent
 from pacman import GameState
+# from collections import deque
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 called = 0  # Number of times something is called, used for debugging
@@ -444,7 +444,8 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         """
         "*** YOUR CODE HERE ***"
         # logging.getLogger().setLevel(logging.DEBUG)
-        # callFlagForQ5()
+        if PAUSE_EVERY_STEP:
+            callFlagForQ5()
 
         def expectimaxCore(agentIndex, depth, gameState):
             # Returns action, and value of that action
@@ -522,6 +523,20 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         return returnAction
 
 
+# positionsVisitedCount = {}
+
+# Initialize a deque to store the last 5 positions
+# lastPositions = deque(maxlen=5)
+
+
+# def recordPosition(position):
+#     lastPositions.append(position)
+
+
+# def getLastPositions():
+#     return list(lastPositions)
+
+
 def betterEvaluationFunction(gameState: GameState):
     """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable evaluation function (question 5).
@@ -530,55 +545,14 @@ def betterEvaluationFunction(gameState: GameState):
 
     """
     "*** YOUR CODE HERE ***"
-    # logging.getLogger().setLevel(logging.DEBUG)
+    if VERBOSE:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     # First, let's try to understand the question.
     # In this final exam / benchmark, the ExpectimaxAgent will be called, and we will be using this evaluation function when the Agent needs an estimate value for the state.
     # The ghost is a pure random ghost, and... I assume the default depth is 2?
     # Yup, depth 2 is the default depth. So yeah.
     # Find a way to make the evaluation function accurately predict how good a state is.
-
-    # Let's begin with trying out the bad one first.
-    # return gameState.getScore()
-    """
-    Question q5
-    ===========
-
-    Pacman emerges victorious! Score: 833
-    Pacman emerges victorious! Score: 1285
-    Pacman emerges victorious! Score: -260
-    Pacman died! Score: -487
-    Pacman emerges victorious! Score: -178
-    Pacman died! Score: -139
-    Pacman emerges victorious! Score: -584
-    Pacman emerges victorious! Score: 779
-    Pacman emerges victorious! Score: -494
-    Pacman emerges victorious! Score: 390
-    Average Score: 114.5
-    Scores:        833.0, 1285.0, -260.0, -487.0, -178.0, -139.0, -584.0, 779.0, -494.0, 390.0
-    Win Rate:      8/10 (0.80)
-    Record:        Win, Win, Win, Loss, Win, Loss, Win, Win, Win, Win
-    *** FAIL: test_cases\q5\grade-agent.test (3 of 6 points)
-    ***     114.5 average score (0 of 2 points)
-    ***         Grading scheme:
-    ***          < 500:  0 points
-    ***         >= 500:  1 points
-    ***         >= 1000:  2 points
-    ***     10 games not timed out (1 of 1 points)
-    ***         Grading scheme:
-    ***          < 0:  fail
-    ***         >= 0:  0 points
-    ***         >= 10:  1 points
-    ***     8 wins (2 of 3 points)
-    ***         Grading scheme:
-    ***          < 1:  fail
-    ***         >= 1:  1 points
-    ***         >= 5:  2 points
-    ***         >= 10:  3 points
-
-    ### Question q5: 3/6 ###
-    """
-    # This actually isn't too bad. Let's work on it more.
 
     # Note:
     # According to PacmanRules in pacman.py
@@ -594,34 +568,62 @@ def betterEvaluationFunction(gameState: GameState):
 
     foodList = gameState.getFood().asList()
 
-    # A board with less dots is better, let's increase the penalty for having dots on board a bit.
-    # value -= len(gameState.getFood().asList()) * 10
-    # This doesn't do anything. Bad idea.
-
     # Losing is the main reason we score low. Let's avoid that.
-    # Cutting corners because there is only one ghost
     DANGER_DISTANCE = 3
     DANGER_PENALTY = 500
     distanceToClosestGhost = min([manhattanDistance(gameState.getPacmanPosition(), ghost.getPosition()) for ghost in gameState.getGhostStates()])
     logging.debug(f"distanceToClosestGhost = {distanceToClosestGhost}")
-    value -= (DANGER_DISTANCE - distanceToClosestGhost) * (DANGER_PENALTY / DANGER_DISTANCE)
-
-    # Not bad, this is already 547.4 average score and all win
+    ghostPenalty = -(max(0, DANGER_DISTANCE - distanceToClosestGhost)) * (DANGER_PENALTY / DANGER_DISTANCE)
+    value += ghostPenalty
+    logging.debug(f"ghostPenalty = {ghostPenalty}")
 
     # Now, let's make pacman be attracted to dots
     # In fact, how about make every dot attract pacman
+    # This almost works now, I'm gonna do an actual fucking path find
     VALUE_OF_FOOD = 10.0
-    DECAY_PER_DISTANCE = 0.8
-
+    DECAY_PER_DISTANCE = 0.05
+    totalFoodValue = 0
     for food in foodList:
-        foodValue = VALUE_OF_FOOD * (DECAY_PER_DISTANCE ** (
-            util.manhattanDistance(position, food)))
-        value += foodValue
+        foodValue = VALUE_OF_FOOD * (DECAY_PER_DISTANCE ** (util.manhattanDistance(position, food)))
+        # logging.debug(f"food = {food}")
+        # logging.debug(f"foodValue = {foodValue}")
+        totalFoodValue += foodValue
+    logging.debug(f"totalFoodValue = {totalFoodValue}")
+    value += totalFoodValue
+
+    # The main problem is pacman staying still
+    # Gonna add a penalty for states we've already visited
+    # It's gonna be a really small penalty
+    # global positionsVisitedCount
+    # if position in positionsVisitedCount:
+    #     positionsVisitedCount[position] += 1
+    # else:
+    #     positionsVisitedCount[position] = 1
+    # lazyPenalty = -positionsVisitedCount[position] * 0.1
+    # logging.debug(f"position = {position}")
+    # logging.debug(f"lazyPenalty = {lazyPenalty}")
+    # value += lazyPenalty
+
+    # That didn't work, try to only penalize the last 5 locations visited
+    # LAZY_PENALTY = 100
+    # totalLazyPenalty = 0
+    # for lastPosition in getLastPositions():
+    #     if lastPosition == position:
+    #         totalLazyPenalty += LAZY_PENALTY
+    # logging.debug(f"position = {position}")
+    # logging.debug(f"totalLazyPenalty = {totalLazyPenalty}")
+    # value -= totalLazyPenalty
+    # # Ok, so the problem is, this is called every time we try to analyze the game state
+    # # Which is actually the successor
+    # recordPosition(position)
 
     logging.getLogger().setLevel(logging.INFO)
-    
     return value
 
 
 # Abbreviation
 better = betterEvaluationFunction
+PAUSE_EVERY_STEP = False
+# PAUSE_EVERY_STEP = True
+VERBOSE = False
+# VERBOSE = True
