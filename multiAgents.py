@@ -193,7 +193,21 @@ class MultiAgentSearchAgent(Agent):
         self.evaluationFunction = util.lookup(evalFn, globals())
         self.depth = int(depth)
 
-# Helper functions used in both Minimax and Alphabeta
+
+# Helper functions used
+def callFlagForQ5():
+    # Counting the number of times this section is called. Useful sometimes.
+    global called
+    # if called == 10:
+    #     util.pause()
+    # if calledEvalFunction >= 10:
+    #     util.pause()
+    #     raise Exception("Called too many times %r", calledEvalFunction)
+    called += 1
+
+    util.pause()
+    logging.debug("\n\n\n----------\n\n\n")
+    logging.debug("[ Called %r ]", called)
 
 
 def isBigger(a, b): return a > b
@@ -243,20 +257,6 @@ class MinimaxAgent(MultiAgentSearchAgent):
 
         "*** YOUR CODE HERE ***"
         # logging.getLogger().setLevel(logging.DEBUG)
-
-        def callFlag():
-            # Counting the number of times this section is called. Useful sometimes.
-            global called
-            # if called == 10:
-            #     util.pause()
-            # if calledEvalFunction >= 10:
-            #     util.pause()
-            #     raise Exception("Called too many times %r", calledEvalFunction)
-            called += 1
-
-            util.pause()
-            logging.debug("\n\n\n----------\n\n\n")
-            logging.debug("[ Called %r ]", called)
 
         def minimaxCore(agentIndex, depth, gameState, comparisonFunction):
             # Returns bestAction, and value of that action
@@ -332,20 +332,6 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
 
         "*** YOUR CODE HERE ***"
         # logging.getLogger().setLevel(logging.DEBUG)
-
-        def callFlag():
-            # Counting the number of times this section is called. Useful sometimes.
-            global called
-            # if called == 10:
-            #     util.pause()
-            # if calledEvalFunction >= 10:
-            #     util.pause()
-            #     raise Exception("Called too many times %r", calledEvalFunction)
-            called += 1
-
-            util.pause()
-            logging.debug("\n\n\n----------\n\n\n")
-            logging.debug("[ Called %r ]", called)
 
         def alphabetaCore(agentIndex, depth, alpha, beta, gameState, comparisonFunction):
             # Returns bestAction, and value of that action
@@ -429,6 +415,21 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         return returnAction
 
 
+def callFlagForQ5():
+    # Counting the number of times this section is called. Useful sometimes.
+    global called
+    # if called == 10:
+    #     util.pause()
+    # if calledEvalFunction >= 10:
+    #     util.pause()
+    #     raise Exception("Called too many times %r", calledEvalFunction)
+    called += 1
+
+    util.pause()
+    logging.debug("\n\n\n----------\n\n\n")
+    logging.debug("[ Called %r ]", called)
+
+
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
       Your expectimax agent (question 4)
@@ -443,20 +444,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         """
         "*** YOUR CODE HERE ***"
         # logging.getLogger().setLevel(logging.DEBUG)
-
-        def callFlag():
-            # Counting the number of times this section is called. Useful sometimes.
-            global called
-            # if called == 10:
-            #     util.pause()
-            # if calledEvalFunction >= 10:
-            #     util.pause()
-            #     raise Exception("Called too many times %r", calledEvalFunction)
-            called += 1
-
-            util.pause()
-            logging.debug("\n\n\n----------\n\n\n")
-            logging.debug("[ Called %r ]", called)
+        # callFlagForQ5()
 
         def expectimaxCore(agentIndex, depth, gameState):
             # Returns action, and value of that action
@@ -602,6 +590,9 @@ def betterEvaluationFunction(gameState: GameState):
     # - Power pellets give no score
 
     value = gameState.getScore()
+    position = gameState.getPacmanPosition()
+
+    foodList = gameState.getFood().asList()
 
     # A board with less dots is better, let's increase the penalty for having dots on board a bit.
     # value -= len(gameState.getFood().asList()) * 10
@@ -609,13 +600,26 @@ def betterEvaluationFunction(gameState: GameState):
 
     # Losing is the main reason we score low. Let's avoid that.
     # Cutting corners because there is only one ghost
+    DANGER_DISTANCE = 3
+    DANGER_PENALTY = 500
     distanceToClosestGhost = min([manhattanDistance(gameState.getPacmanPosition(), ghost.getPosition()) for ghost in gameState.getGhostStates()])
     logging.debug(f"distanceToClosestGhost = {distanceToClosestGhost}")
-    value -= (10 - distanceToClosestGhost) * (500 / 10)
+    value -= (DANGER_DISTANCE - distanceToClosestGhost) * (DANGER_PENALTY / DANGER_DISTANCE)
 
     # Not bad, this is already 547.4 average score and all win
 
+    # Now, let's make pacman be attracted to dots
+    # In fact, how about make every dot attract pacman
+    VALUE_OF_FOOD = 10.0
+    DECAY_PER_DISTANCE = 0.8
+
+    for food in foodList:
+        foodValue = VALUE_OF_FOOD * (DECAY_PER_DISTANCE ** (
+            util.manhattanDistance(position, food)))
+        value += foodValue
+
     logging.getLogger().setLevel(logging.INFO)
+    
     return value
 
 
