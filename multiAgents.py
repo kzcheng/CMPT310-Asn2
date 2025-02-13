@@ -467,6 +467,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
                 return None, evaluatedActionValue
 
             # callFlag()
+            # logging.debug(f"depth = {depth}")
 
             # If we already reached the depth limit, no need to do anything else
             # Just return the evaluated value
@@ -533,15 +534,89 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         return returnAction
 
 
-def betterEvaluationFunction(currentGameState: GameState):
+def betterEvaluationFunction(gameState: GameState):
     """
-    Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
-    evaluation function (question 5).
+    Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable evaluation function (question 5).
 
-    DESCRIPTION: <write something here so we know what you did>
+    DESCRIPTION:
+
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    # logging.getLogger().setLevel(logging.DEBUG)
+
+    # First, let's try to understand the question.
+    # In this final exam / benchmark, the ExpectimaxAgent will be called, and we will be using this evaluation function when the Agent needs an estimate value for the state.
+    # The ghost is a pure random ghost, and... I assume the default depth is 2?
+    # Yup, depth 2 is the default depth. So yeah.
+    # Find a way to make the evaluation function accurately predict how good a state is.
+
+    # Let's begin with trying out the bad one first.
+    # return gameState.getScore()
+    """
+    Question q5
+    ===========
+
+    Pacman emerges victorious! Score: 833
+    Pacman emerges victorious! Score: 1285
+    Pacman emerges victorious! Score: -260
+    Pacman died! Score: -487
+    Pacman emerges victorious! Score: -178
+    Pacman died! Score: -139
+    Pacman emerges victorious! Score: -584
+    Pacman emerges victorious! Score: 779
+    Pacman emerges victorious! Score: -494
+    Pacman emerges victorious! Score: 390
+    Average Score: 114.5
+    Scores:        833.0, 1285.0, -260.0, -487.0, -178.0, -139.0, -584.0, 779.0, -494.0, 390.0
+    Win Rate:      8/10 (0.80)
+    Record:        Win, Win, Win, Loss, Win, Loss, Win, Win, Win, Win
+    *** FAIL: test_cases\q5\grade-agent.test (3 of 6 points)
+    ***     114.5 average score (0 of 2 points)
+    ***         Grading scheme:
+    ***          < 500:  0 points
+    ***         >= 500:  1 points
+    ***         >= 1000:  2 points
+    ***     10 games not timed out (1 of 1 points)
+    ***         Grading scheme:
+    ***          < 0:  fail
+    ***         >= 0:  0 points
+    ***         >= 10:  1 points
+    ***     8 wins (2 of 3 points)
+    ***         Grading scheme:
+    ***          < 1:  fail
+    ***         >= 1:  1 points
+    ***         >= 5:  2 points
+    ***         >= 10:  3 points
+
+    ### Question q5: 3/6 ###
+    """
+    # This actually isn't too bad. Let's work on it more.
+
+    # Note:
+    # According to PacmanRules in pacman.py
+    # - Eating a dot gives 10 score
+    # - Winning the game gives 500
+    # - Eating the scared ghost gives 200
+    # - Losing the game loses 500
+    # - Each time step, the existence cost is 1
+    # - Power pellets give no score
+
+    value = gameState.getScore()
+
+    # A board with less dots is better, let's increase the penalty for having dots on board a bit.
+    # value -= len(gameState.getFood().asList()) * 10
+    # This doesn't do anything. Bad idea.
+
+    # Losing is the main reason we score low. Let's avoid that.
+    # Cutting corners because there is only one ghost
+    distanceToClosestGhost = min([manhattanDistance(gameState.getPacmanPosition(), ghost.getPosition()) for ghost in gameState.getGhostStates()])
+    logging.debug(f"distanceToClosestGhost = {distanceToClosestGhost}")
+    value -= (10 - distanceToClosestGhost) * (500 / 10)
+
+    # Not bad, this is already 547.4 average score and all win
+
+    logging.getLogger().setLevel(logging.INFO)
+    return value
 
 
 # Abbreviation
