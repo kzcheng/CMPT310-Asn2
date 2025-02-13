@@ -193,6 +193,24 @@ class MultiAgentSearchAgent(Agent):
         self.evaluationFunction = util.lookup(evalFn, globals())
         self.depth = int(depth)
 
+# Helper functions used in both Minimax and Alphabeta
+
+
+def isBigger(a, b): return a > b
+
+
+def isSmaller(a, b): return a < b
+
+
+def getNextAgentData(agentIndex, depth, gameState):
+    nextAgentIndex = (agentIndex + 1) % gameState.getNumAgents()
+    nextDepth = depth
+    nextComparison = isSmaller
+    if nextAgentIndex == 0:  # If it's Pacman's turn again
+        nextDepth -= 1
+        nextComparison = isBigger
+    return nextAgentIndex, nextDepth, nextComparison
+
 
 class MinimaxAgent(MultiAgentSearchAgent):
     """
@@ -240,23 +258,10 @@ class MinimaxAgent(MultiAgentSearchAgent):
             logging.debug("\n\n\n----------\n\n\n")
             logging.debug("[ Called %r ]", called)
 
-        def isBigger(a, b): return a > b
-
-        def isSmaller(a, b): return a < b
-
         def minimaxCore(agentIndex, depth, gameState, comparisonFunction):
             # Returns bestAction, and value of that action
             bestAction = None
             bestActionValue = None
-
-            def getNextAgentData(agentIndex, depth):
-                nextAgentIndex = (agentIndex + 1) % gameState.getNumAgents()
-                nextDepth = depth
-                nextComparison = isSmaller
-                if nextAgentIndex == 0:  # If it's Pacman's turn again
-                    nextDepth -= 1
-                    nextComparison = isBigger
-                return nextAgentIndex, nextDepth, nextComparison
 
             def endOfAnalysis():
                 logging.debug(f"Max Depth Reached")
@@ -276,7 +281,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
                 logging.debug(f"Max Depth Reached")
                 return endOfAnalysis()
 
-            nextAgentIndex, nextDepth, nextComparison = getNextAgentData(agentIndex, depth)
+            nextAgentIndex, nextDepth, nextComparison = getNextAgentData(agentIndex, depth, gameState)
 
             # Analyze all actions possible for pacman, and store the actions in a list
             actionList = gameState.getLegalActions(agentIndex)
@@ -342,26 +347,12 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
             logging.debug("\n\n\n----------\n\n\n")
             logging.debug("[ Called %r ]", called)
 
-        def isBigger(a, b): return a > b
-
-        def isSmaller(a, b): return a < b
-
         def alphabetaCore(agentIndex, depth, alpha, beta, gameState, comparisonFunction):
             # Returns bestAction, and value of that action
             bestAction = None
             bestActionValue = None
 
-            def getNextAgentData(agentIndex, depth):
-                nextAgentIndex = (agentIndex + 1) % gameState.getNumAgents()
-                nextDepth = depth
-                nextComparison = isSmaller
-                if nextAgentIndex == 0:  # If it's Pacman's turn again
-                    nextDepth -= 1
-                    nextComparison = isBigger
-                return nextAgentIndex, nextDepth, nextComparison
-
             def endOfAnalysis():
-                logging.debug(f"Max Depth Reached")
                 evaluatedActionValue = self.evaluationFunction(gameState)
                 logging.debug(f"evaluatedActionValue = {evaluatedActionValue}")
                 return None, evaluatedActionValue
@@ -378,7 +369,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
                 logging.debug(f"Max Depth Reached")
                 return endOfAnalysis()
 
-            nextAgentIndex, nextDepth, nextComparison = getNextAgentData(agentIndex, depth)
+            nextAgentIndex, nextDepth, nextComparison = getNextAgentData(agentIndex, depth, gameState)
 
             # Analyze all actions possible for pacman, and store the actions in a list
             actionList = gameState.getLegalActions(agentIndex)
