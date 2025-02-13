@@ -563,21 +563,11 @@ def betterEvaluationFunction(gameState: GameState):
     # - Each time step, the existence cost is 1
     # - Power pellets give no score
 
-    value = gameState.getScore()
     position = gameState.getPacmanPosition()
-
     foodList = gameState.getFood().asList()
 
-    # Losing is the main reason we score low. Let's avoid that.
-    DANGER_DISTANCE = 3
-    DANGER_PENALTY = 500
-    distanceToClosestGhost = min([manhattanDistance(gameState.getPacmanPosition(), ghost.getPosition()) for ghost in gameState.getGhostStates()])
-    logging.debug(f"distanceToClosestGhost = {distanceToClosestGhost}")
-    ghostPenalty = -(max(0, DANGER_DISTANCE - distanceToClosestGhost)) * (DANGER_PENALTY / DANGER_DISTANCE)
-    value += ghostPenalty
-    logging.debug(f"ghostPenalty = {ghostPenalty}")
-
     def aStarDistance(start, goal):
+        # A fucking entire a star path search to calculate "distance" accurately
         from util import PriorityQueue
         walls = gameState.getWalls()
         frontier = PriorityQueue()
@@ -607,19 +597,28 @@ def betterEvaluationFunction(gameState: GameState):
 
         return float('inf')  # No path found
 
-    # Now, let's make pacman be attracted to dots
-    # In fact, how about make every dot attract pacman
-    # This almost works now, I'm gonna do an actual fucking path find
-    VALUE_OF_FOOD = 10.0
-    DECAY_PER_DISTANCE = 0.05
-    totalFoodValue = 0
-    for food in foodList:
-        foodValue = VALUE_OF_FOOD * (DECAY_PER_DISTANCE ** (aStarDistance(position, food)))
-        # logging.debug(f"food = {food}")
-        # logging.debug(f"foodValue = {foodValue}")
-        totalFoodValue += foodValue
-    logging.debug(f"totalFoodValue = {totalFoodValue}")
-    value += totalFoodValue
+    def penaltyFromCloseToGhost():
+        # Losing is the main reason we score low. Let's avoid that.
+        DANGER_DISTANCE = 3
+        DANGER_PENALTY = 500
+        distanceToClosestGhost = min([manhattanDistance(gameState.getPacmanPosition(), ghost.getPosition()) for ghost in gameState.getGhostStates()])
+        logging.debug(f"distanceToClosestGhost = {distanceToClosestGhost}")
+        ghostPenalty = -(max(0, DANGER_DISTANCE - distanceToClosestGhost)) * (DANGER_PENALTY / DANGER_DISTANCE)
+        return ghostPenalty
+
+    def valueFromFoodList():
+        # Now, let's make pacman be attracted to dots
+        # In fact, how about make every dot attract pacman
+        # This almost works now, I'm gonna do an actual fucking path find
+        VALUE_OF_FOOD = 10.0
+        DECAY_PER_DISTANCE = 0.05
+        totalFoodValue = 0
+        for food in foodList:
+            foodValue = VALUE_OF_FOOD * (DECAY_PER_DISTANCE ** (aStarDistance(position, food)))
+            # logging.debug(f"food = {food}")
+            # logging.debug(f"foodValue = {foodValue}")
+            totalFoodValue += foodValue
+        return totalFoodValue
 
     # The main problem is pacman staying still
     # Gonna add a penalty for states we've already visited
@@ -647,6 +646,23 @@ def betterEvaluationFunction(gameState: GameState):
     # # Which is actually the successor
     # recordPosition(position)
 
+    def totalValue():
+        totalValue = 0
+
+        totalValue += gameState.getScore()
+
+        ghostPenalty = penaltyFromCloseToGhost()
+        logging.debug(f"ghostPenalty = {ghostPenalty}")
+        totalValue += ghostPenalty
+
+        totalFoodValue = valueFromFoodList()
+        logging.debug(f"totalFoodValue = {totalFoodValue}")
+        totalValue += totalFoodValue
+
+        return totalValue
+
+    value = totalValue()
+
     logging.getLogger().setLevel(logging.INFO)
     return value
 
@@ -654,6 +670,8 @@ def betterEvaluationFunction(gameState: GameState):
 # Abbreviation
 better = betterEvaluationFunction
 PAUSE_EVERY_STEP = False
-# PAUSE_EVERY_STEP = True
 VERBOSE = False
+
+
+# PAUSE_EVERY_STEP = True
 # VERBOSE = True
