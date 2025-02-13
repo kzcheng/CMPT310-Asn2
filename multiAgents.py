@@ -14,15 +14,16 @@
 
 import logging
 from util import manhattanDistance
-from game import Directions
+from game import Directions, Actions
 import random
 import util
-
 from game import Agent
 from pacman import GameState
+# from collections import deque
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
-called = 0  # Number of times something is called, used for debugging
+calledAgent = 0  # Number of times something is called, used for debugging
+calledEval = 0
 
 
 class ReflexAgent(Agent):
@@ -76,17 +77,6 @@ class ReflexAgent(Agent):
 
         "*** YOUR CODE HERE ***"
         # logging.getLogger().setLevel(logging.DEBUG)
-
-        # Counting the number of times this section is called. Useful sometimes.
-        global called
-        # if called == 10:
-        #     util.pause()
-        # if calledEvalFunction >= 10:
-        #     util.pause()
-        #     raise Exception("Called too many times %r", calledEvalFunction)
-        called += 1
-        logging.debug("\n\n\n----------\n\n\n")
-        logging.debug("[ Eval Function Called %r ]", called)
 
         # Thoughts:
         # First of all, let's think of a plan for this evaluation function.
@@ -193,7 +183,21 @@ class MultiAgentSearchAgent(Agent):
         self.evaluationFunction = util.lookup(evalFn, globals())
         self.depth = int(depth)
 
-# Helper functions used in both Minimax and Alphabeta
+
+# Helper functions used
+def callFlag():
+    # Counting the number of times this section is called. Useful sometimes.
+    global called
+    # if called == 10:
+    #     util.pause()
+    # if calledEvalFunction >= 10:
+    #     util.pause()
+    #     raise Exception("Called too many times %r", calledEvalFunction)
+    called += 1
+
+    util.pause()
+    logging.debug("\n\n\n----------\n\n\n")
+    logging.debug("[ Called %r ]", called)
 
 
 def isBigger(a, b): return a > b
@@ -243,20 +247,6 @@ class MinimaxAgent(MultiAgentSearchAgent):
 
         "*** YOUR CODE HERE ***"
         # logging.getLogger().setLevel(logging.DEBUG)
-
-        def callFlag():
-            # Counting the number of times this section is called. Useful sometimes.
-            global called
-            # if called == 10:
-            #     util.pause()
-            # if calledEvalFunction >= 10:
-            #     util.pause()
-            #     raise Exception("Called too many times %r", calledEvalFunction)
-            called += 1
-
-            util.pause()
-            logging.debug("\n\n\n----------\n\n\n")
-            logging.debug("[ Called %r ]", called)
 
         def minimaxCore(agentIndex, depth, gameState, comparisonFunction):
             # Returns bestAction, and value of that action
@@ -332,20 +322,6 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
 
         "*** YOUR CODE HERE ***"
         # logging.getLogger().setLevel(logging.DEBUG)
-
-        def callFlag():
-            # Counting the number of times this section is called. Useful sometimes.
-            global called
-            # if called == 10:
-            #     util.pause()
-            # if calledEvalFunction >= 10:
-            #     util.pause()
-            #     raise Exception("Called too many times %r", calledEvalFunction)
-            called += 1
-
-            util.pause()
-            logging.debug("\n\n\n----------\n\n\n")
-            logging.debug("[ Called %r ]", called)
 
         def alphabetaCore(agentIndex, depth, alpha, beta, gameState, comparisonFunction):
             # Returns bestAction, and value of that action
@@ -443,20 +419,13 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         """
         "*** YOUR CODE HERE ***"
         # logging.getLogger().setLevel(logging.DEBUG)
-
-        def callFlag():
+        if PAUSE_EVERY_BIG_STEP:
             # Counting the number of times this section is called. Useful sometimes.
-            global called
-            # if called == 10:
-            #     util.pause()
-            # if calledEvalFunction >= 10:
-            #     util.pause()
-            #     raise Exception("Called too many times %r", calledEvalFunction)
-            called += 1
-
+            global calledAgent
+            calledAgent += 1
             util.pause()
             logging.debug("\n\n\n----------\n\n\n")
-            logging.debug("[ Called %r ]", called)
+            logging.debug("[ Agent Called %r ]", calledAgent)
 
         def expectimaxCore(agentIndex, depth, gameState):
             # Returns action, and value of that action
@@ -467,6 +436,7 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
                 return None, evaluatedActionValue
 
             # callFlag()
+            # logging.debug(f"depth = {depth}")
 
             # If we already reached the depth limit, no need to do anything else
             # Just return the evaluated value
@@ -533,16 +503,225 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         return returnAction
 
 
-def betterEvaluationFunction(currentGameState: GameState):
-    """
-    Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
-    evaluation function (question 5).
+# positionsVisitedCount = {}
 
-    DESCRIPTION: <write something here so we know what you did>
+# Initialize a deque to store the last 5 positions
+# lastPositions = deque(maxlen=5)
+
+
+# def recordPosition(position):
+#     lastPositions.append(position)
+
+
+# def getLastPositions():
+#     return list(lastPositions)
+
+
+def betterEvaluationFunction(gameState: GameState):
+    """
+    Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable evaluation function (question 5).
+
+    DESCRIPTION:
+
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    if VERBOSE:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    # First, let's try to understand the question.
+    # In this final exam / benchmark, the ExpectimaxAgent will be called, and we will be using this evaluation function when the Agent needs an estimate value for the state.
+    # The ghost is a pure random ghost, and... I assume the default depth is 2?
+    # Yup, depth 2 is the default depth. So yeah.
+    # Find a way to make the evaluation function accurately predict how good a state is.
+
+    # Note:
+    # According to PacmanRules in pacman.py
+    # - Eating a dot gives 10 score
+    # - Winning the game gives 500
+    # - Eating the scared ghost gives 200
+    # - Losing the game loses 500
+    # - Each time step, the existence cost is 1
+    # - Power pellets give no score
+
+    position = gameState.getPacmanPosition()
+    foodList = gameState.getFood().asList()
+
+    def aStarDistance(start, goal):
+        # A fucking entire a star path search to calculate "distance" accurately
+        from util import PriorityQueue
+        walls = gameState.getWalls()
+        frontier = PriorityQueue()
+        frontier.push((start, 0), 0)
+        visited = {}
+
+        while not frontier.isEmpty():
+            current, cost = frontier.pop()
+            if current in visited:
+                continue
+            visited[current] = cost
+
+            if current == goal:
+                return cost
+
+            x, y = current
+            for direction in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
+                dx, dy = Actions.directionToVector(direction)
+                nextx = int(x + dx)
+                nexty = int(y + dy)
+                if 0 <= nextx < walls.width and 0 <= nexty < walls.height and not walls[nextx][nexty]:
+                    nextPos = (nextx, nexty)
+                    new_cost = cost + 1
+                    if nextPos not in visited or new_cost < visited.get(nextPos, float('inf')):
+                        priority = new_cost + manhattanDistance(nextPos, goal)
+                        frontier.push((nextPos, new_cost), priority)
+
+        return float('inf')  # No path found
+
+    def getPenaltyFromCloseToGhost():
+        # Losing is the main reason we score low. Let's avoid that.
+        PENALTY_MAX = 500
+        DANGER_DISTANCE = 3
+
+        # TODO: Make this also use DECAY_PER_DISTANCE
+
+        # Calculate distances to all active ghosts
+        distancesToActiveGhosts = []
+        for ghost in gameState.getGhostStates():
+            if ghost.scaredTimer == 0:
+                distance = aStarDistance(gameState.getPacmanPosition(), ghost.getPosition())
+                distancesToActiveGhosts.append(distance)
+
+        # Find the minimum distance to an active ghost, defaulting to infinity if no active ghosts
+        if distancesToActiveGhosts:
+            distanceToClosestActiveGhost = min(distancesToActiveGhosts)
+        else:
+            distanceToClosestActiveGhost = float('inf')
+        # logging.debug(f"distanceToClosestGhost = {distanceToClosestActiveGhost}")
+        ghostPenalty = -(max(0, DANGER_DISTANCE - distanceToClosestActiveGhost)) * (PENALTY_MAX / DANGER_DISTANCE)
+        return ghostPenalty
+
+    def getRewardFromAllFood():
+        # Now, let's make pacman be attracted to dots
+        # In fact, how about make every dot attract pacman
+        # This almost works now, I'm gonna do an actual fucking path find
+        VALUE_OF_FOOD = 10.0
+        DECAY_PER_DISTANCE = 0.05
+
+        totalFoodValue = 0
+
+        for food in foodList:
+            foodValue = VALUE_OF_FOOD * (DECAY_PER_DISTANCE ** (aStarDistance(position, food)))
+            # logging.debug(f"food = {food}")
+            # logging.debug(f"foodValue = {foodValue}")
+            totalFoodValue += foodValue
+
+        return totalFoodValue
+
+    def getRewardFromScaredGhosts():
+        # Scared ghosts are just super food anyway lmao
+        VALUE_OF_SCARED_GHOST = 100
+        DECAY_PER_DISTANCE = 0.9
+
+        # TODO: Ghost Value should not be total, it should be max of closest one
+        totalGhostValue = 0
+
+        scaredGhosts = []
+        for scaredGhost in gameState.getGhostStates():
+            if scaredGhost.scaredTimer > 0:
+                scaredGhosts.append(scaredGhost)
+
+        for scaredGhost in scaredGhosts:
+            distanceToScaredGhost = aStarDistance(position, scaredGhost.getPosition())
+            # if distanceToScaredGhost < 5:
+            #     global PAUSE_EVERY_BIG_STEP
+            #     PAUSE_EVERY_BIG_STEP = True
+            logging.debug(f"distanceToScaredGhost = {distanceToScaredGhost}")
+            ghostValue = VALUE_OF_SCARED_GHOST * (DECAY_PER_DISTANCE ** distanceToScaredGhost)
+            totalGhostValue += ghostValue
+
+        return totalGhostValue
+
+    def getRewardFromCloseToCapsules():
+        VALUE_OF_CAPSULES = 50
+        DECAY_PER_DISTANCE = 0.05
+
+        # Power pellets are ignored if scared ghosts exists
+        for ghost in gameState.getGhostStates():
+            if ghost.scaredTimer > 0:
+                return 0
+
+        closestCapsuleDistance = float('inf')
+        for capsule in gameState.getCapsules():
+            distance = aStarDistance(position, capsule)
+            closestCapsuleDistance = min(closestCapsuleDistance, distance)
+            logging.debug(f"capsule = {capsule}")
+            logging.debug(f"closestCapsuleDistance = {closestCapsuleDistance}")
+
+        closestCapsuleValue = VALUE_OF_CAPSULES * (DECAY_PER_DISTANCE ** closestCapsuleDistance)
+
+        return closestCapsuleValue
+
+    def getRewardFromGhostsBeingScared():
+        VALUE_OF_SCARED = 50
+        for ghost in gameState.getGhostStates():
+            if ghost.scaredTimer > 0:
+                return VALUE_OF_SCARED
+        return 0
+
+    def getTotalValue():
+        totalValue = 0
+
+        # 0. Default to the in game score first
+        totalValue += gameState.getScore()
+
+        # Food incentives
+        totalFoodReward = getRewardFromAllFood()
+        totalValue += totalFoodReward
+
+        # Ghost penalties (only for non-scared ghosts)
+        ghostPenalty = getPenaltyFromCloseToGhost()
+        logging.debug(f"ghostPenalty = {ghostPenalty}")
+        totalValue += ghostPenalty
+
+        # Scared ghost rewards
+        scaredGhostReward = getRewardFromScaredGhosts()
+        logging.debug(f"scaredGhostReward = {scaredGhostReward}")
+        totalValue += scaredGhostReward
+
+        # Capsules proximity (only when no scared ghosts exist)
+        capsulesReward = getRewardFromCloseToCapsules()
+        totalValue += capsulesReward
+
+        # Additional bonus for having ghosts be scared
+        scaredBonus = getRewardFromGhostsBeingScared()
+        logging.debug(f"scaredBonus = {scaredBonus}")
+        totalValue += scaredBonus
+
+        return totalValue
+
+    if PAUSE_EVERY_SMALL_STEP:
+        # Counting the number of times this section is called. Useful sometimes.
+        global calledEval
+        calledEval += 1
+        util.pause()
+        logging.debug("\n\n\n----------\n\n\n")
+        logging.debug("[ Eval Called %r ]", calledEval)
+
+    # totalValue = 0
+    totalValue = getTotalValue()
+
+    logging.getLogger().setLevel(logging.INFO)
+    return totalValue
 
 
 # Abbreviation
 better = betterEvaluationFunction
+
+# Debug tags
+VERBOSE = False
+PAUSE_EVERY_BIG_STEP = False
+PAUSE_EVERY_SMALL_STEP = False
+
+# VERBOSE = True
+# PAUSE_EVERY_BIG_STEP = True
+# PAUSE_EVERY_SMALL_STEP = True
