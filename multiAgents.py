@@ -398,29 +398,27 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
                 # Note that v is actionValue
                 _, actionValue = alphabetaCore(nextAgentIndex, nextDepth, alpha, beta, successorGameState, nextComparison)
 
-                # v = max(v, value(successor, alpha, beta))
+                # v = max/min(v, value(successor, alpha, beta))
                 if bestActionValue is None or comparisonFunction(actionValue, bestActionValue):
                     bestActionValue = actionValue
                     bestAction = action
 
-                # This is a stupid implementation
                 if comparisonFunction == isBigger:
                     # if v > beta return v
                     if actionValue > beta:
                         return bestAction, bestActionValue
-
                     # alpha = max(alpha, v)
-                    if actionValue > alpha:
-                        alpha = actionValue
+                    alpha = max(alpha, actionValue)
 
                 elif comparisonFunction == isSmaller:
                     # if v < alpha return v
                     if actionValue < alpha:
                         return bestAction, bestActionValue
-
                     # beta = min(beta, v)
-                    if actionValue < beta:
-                        beta = actionValue
+                    beta = min(beta, actionValue)
+
+                else:
+                    raise Exception("Unexpected comparison function encountered. Expected either 'isBigger' or 'isSmaller', but got: {}".format(comparisonFunction))
 
             logging.debug(f"bestAction, bestActionValue = {bestAction, bestActionValue}")
             return bestAction, bestActionValue
