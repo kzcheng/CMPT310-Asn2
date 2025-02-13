@@ -11,6 +11,9 @@
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
+# This assignment is completed by Kevin Cheng for the course CMPT 310 (Intro Artificial Intelligence) at Simon Fraser University
+# The repo for this assignment can be found at https://github.com/kzcheng/CMPT310-Asn2
+
 
 import logging
 from util import manhattanDistance
@@ -19,7 +22,6 @@ import random
 import util
 from game import Agent
 from pacman import GameState
-# from collections import deque
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 calledAgent = 0  # Number of times something is called, used for debugging
@@ -503,18 +505,8 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         return returnAction
 
 
-# positionsVisitedCount = {}
-
-# Initialize a deque to store the last 5 positions
-# lastPositions = deque(maxlen=5)
-
-
-# def recordPosition(position):
-#     lastPositions.append(position)
-
-
-# def getLastPositions():
-#     return list(lastPositions)
+def valueDecayedByDistanced(value, decay, distance):
+    return value * (decay ** distance)
 
 
 def betterEvaluationFunction(gameState: GameState):
@@ -522,7 +514,13 @@ def betterEvaluationFunction(gameState: GameState):
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable evaluation function (question 5).
 
     DESCRIPTION:
-
+    Calculates the evaluated "value" of a state and return it.
+    1. Use the in game score of the given state as the baseline.
+    2. Calculate penalties for each active ghost. Pacman don't want to be near them.
+    3. If there are scared ghosts, try to eat them.
+    3i. Scared bonus is a reward for making ghosts scared. To encourage eating power capsules.
+    4. Otherwise, reward pacman for going near capsules.
+    5. Also reward pacman for going in the direction of where food are.
     """
     "*** YOUR CODE HERE ***"
     if VERBOSE:
@@ -548,9 +546,10 @@ def betterEvaluationFunction(gameState: GameState):
 
     def aStarDistance(start, goal):
         # A fucking entire a star path search to calculate "distance" accurately
-        from util import PriorityQueue
+        start = util.nearestPoint(start)
+        goal = util.nearestPoint(goal)
         walls = gameState.getWalls()
-        frontier = PriorityQueue()
+        frontier = util.PriorityQueue()
         frontier.push((start, 0), 0)
         visited = {}
 
@@ -575,55 +574,53 @@ def betterEvaluationFunction(gameState: GameState):
                         priority = new_cost + manhattanDistance(nextPos, goal)
                         frontier.push((nextPos, new_cost), priority)
 
+        # raise Exception("No path found from {} to {}".format(start, goal))
         return float('inf')  # No path found
-
-    def getPenaltyFromCloseToGhost():
-        # Losing is the main reason we score low. Let's avoid that.
-        PENALTY_MAX = 500
-        DANGER_DISTANCE = 3
-
-        # TODO: Make this also use DECAY_PER_DISTANCE
-
-        # Calculate distances to all active ghosts
-        distancesToActiveGhosts = []
-        for ghost in gameState.getGhostStates():
-            if ghost.scaredTimer == 0:
-                distance = aStarDistance(gameState.getPacmanPosition(), ghost.getPosition())
-                distancesToActiveGhosts.append(distance)
-
-        # Find the minimum distance to an active ghost, defaulting to infinity if no active ghosts
-        if distancesToActiveGhosts:
-            distanceToClosestActiveGhost = min(distancesToActiveGhosts)
-        else:
-            distanceToClosestActiveGhost = float('inf')
-        # logging.debug(f"distanceToClosestGhost = {distanceToClosestActiveGhost}")
-        ghostPenalty = -(max(0, DANGER_DISTANCE - distanceToClosestActiveGhost)) * (PENALTY_MAX / DANGER_DISTANCE)
-        return ghostPenalty
 
     def getRewardFromAllFood():
         # Now, let's make pacman be attracted to dots
         # In fact, how about make every dot attract pacman
         # This almost works now, I'm gonna do an actual fucking path find
         VALUE_OF_FOOD = 10.0
-        DECAY_PER_DISTANCE = 0.05
+        DECAY_PER_DISTANCE = 0.1
 
         totalFoodValue = 0
 
         for food in foodList:
-            foodValue = VALUE_OF_FOOD * (DECAY_PER_DISTANCE ** (aStarDistance(position, food)))
-            # logging.debug(f"food = {food}")
-            # logging.debug(f"foodValue = {foodValue}")
+            distanceToFood = aStarDistance(position, food)
+            foodValue = valueDecayedByDistanced(VALUE_OF_FOOD, DECAY_PER_DISTANCE, distanceToFood)
             totalFoodValue += foodValue
 
         return totalFoodValue
+
+    def getPenaltyFromCloseToActiveGhost():
+        # Losing is the main reason we score low. Let's avoid that.
+        PENALTY_OF_ACTIVE_GHOST = -500
+        DECAY_PER_DISTANCE = 0.05
+        MAX_AVOID_DISTANCE = 3
+
+        value = 0
+
+        activeGhosts = []
+        for ghost in gameState.getGhostStates():
+            if ghost.scaredTimer == 0:
+                activeGhosts.append(ghost)
+
+        for ghost in activeGhosts:
+            distance = aStarDistance(position, ghost.getPosition())
+            if distance > MAX_AVOID_DISTANCE:
+                continue
+            ghostPenalty = valueDecayedByDistanced(PENALTY_OF_ACTIVE_GHOST, DECAY_PER_DISTANCE, distance)
+            value += ghostPenalty
+
+        return value
 
     def getRewardFromScaredGhosts():
         # Scared ghosts are just super food anyway lmao
         VALUE_OF_SCARED_GHOST = 100
         DECAY_PER_DISTANCE = 0.9
 
-        # TODO: Ghost Value should not be total, it should be max of closest one
-        totalGhostValue = 0
+        minDistance = float('inf')
 
         scaredGhosts = []
         for scaredGhost in gameState.getGhostStates():
@@ -632,23 +629,17 @@ def betterEvaluationFunction(gameState: GameState):
 
         for scaredGhost in scaredGhosts:
             distanceToScaredGhost = aStarDistance(position, scaredGhost.getPosition())
-            # if distanceToScaredGhost < 5:
-            #     global PAUSE_EVERY_BIG_STEP
-            #     PAUSE_EVERY_BIG_STEP = True
+            if minDistance > distanceToScaredGhost:
+                minDistance = distanceToScaredGhost
             logging.debug(f"distanceToScaredGhost = {distanceToScaredGhost}")
-            ghostValue = VALUE_OF_SCARED_GHOST * (DECAY_PER_DISTANCE ** distanceToScaredGhost)
-            totalGhostValue += ghostValue
 
-        return totalGhostValue
+        ghostValue = valueDecayedByDistanced(VALUE_OF_SCARED_GHOST, DECAY_PER_DISTANCE, minDistance)
+
+        return ghostValue
 
     def getRewardFromCloseToCapsules():
         VALUE_OF_CAPSULES = 50
         DECAY_PER_DISTANCE = 0.05
-
-        # Power pellets are ignored if scared ghosts exists
-        for ghost in gameState.getGhostStates():
-            if ghost.scaredTimer > 0:
-                return 0
 
         closestCapsuleDistance = float('inf')
         for capsule in gameState.getCapsules():
@@ -657,46 +648,60 @@ def betterEvaluationFunction(gameState: GameState):
             logging.debug(f"capsule = {capsule}")
             logging.debug(f"closestCapsuleDistance = {closestCapsuleDistance}")
 
-        closestCapsuleValue = VALUE_OF_CAPSULES * (DECAY_PER_DISTANCE ** closestCapsuleDistance)
+        closestCapsuleValue = valueDecayedByDistanced(VALUE_OF_CAPSULES, DECAY_PER_DISTANCE, closestCapsuleDistance)
 
         return closestCapsuleValue
 
     def getRewardFromGhostsBeingScared():
-        VALUE_OF_SCARED = 50
-        for ghost in gameState.getGhostStates():
-            if ghost.scaredTimer > 0:
-                return VALUE_OF_SCARED
-        return 0
+        VALUE_OF_SCARED = 30
+        return VALUE_OF_SCARED
 
     def getTotalValue():
         totalValue = 0
 
-        # 0. Default to the in game score first
+        # Default to the in game score first
         totalValue += gameState.getScore()
 
-        # Food incentives
-        totalFoodReward = getRewardFromAllFood()
-        totalValue += totalFoodReward
-
-        # Ghost penalties (only for non-scared ghosts)
-        ghostPenalty = getPenaltyFromCloseToGhost()
+        # Ghost penalties for active ghosts
+        ghostPenalty = getPenaltyFromCloseToActiveGhost()
         logging.debug(f"ghostPenalty = {ghostPenalty}")
         totalValue += ghostPenalty
 
-        # Scared ghost rewards
-        scaredGhostReward = getRewardFromScaredGhosts()
-        logging.debug(f"scaredGhostReward = {scaredGhostReward}")
-        totalValue += scaredGhostReward
+        def getValueWhenScaredExists():
+            value = 0
 
-        # Capsules proximity (only when no scared ghosts exist)
-        capsulesReward = getRewardFromCloseToCapsules()
-        totalValue += capsulesReward
+            # Scared ghost rewards for eating it
+            scaredGhostReward = getRewardFromScaredGhosts()
+            logging.debug(f"scaredGhostReward = {scaredGhostReward}")
+            value += scaredGhostReward
 
-        # Additional bonus for having ghosts be scared
-        scaredBonus = getRewardFromGhostsBeingScared()
-        logging.debug(f"scaredBonus = {scaredBonus}")
-        totalValue += scaredBonus
+            # Additional bonus for having ghosts be scared
+            scaredBonus = getRewardFromGhostsBeingScared()
+            logging.debug(f"scaredBonus = {scaredBonus}")
+            value += scaredBonus
 
+            return value
+
+        def getValueWhenNoScaredExists():
+            value = 0
+
+            # Capsules proximity
+            capsulesReward = getRewardFromCloseToCapsules()
+            value += capsulesReward
+
+            # Food incentives
+            totalFoodReward = getRewardFromAllFood()
+            value += totalFoodReward
+
+            return value
+
+        # If scared ghosts exists
+        for ghost in gameState.getGhostStates():
+            if ghost.scaredTimer > 0:
+                totalValue += getValueWhenScaredExists()
+                return totalValue
+        # If no scared ghosts exist
+        totalValue += getValueWhenNoScaredExists()
         return totalValue
 
     if PAUSE_EVERY_SMALL_STEP:
